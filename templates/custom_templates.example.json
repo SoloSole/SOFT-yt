@@ -1,0 +1,15 @@
+{
+  "templates": [
+    {
+      "id": "grid_1x3",
+      "name": "Vertikální pásy 1×3",
+      "rows": 1,
+      "columns": 3,
+      "slots": [
+        { "id": "A", "row": 0, "column": 0, "label": "Levý" },
+        { "id": "B", "row": 0, "column": 1, "label": "Střed" },
+        { "id": "C", "row": 0, "column": 2, "label": "Pravý" }
+      ]
+    }
+  ]
+}
