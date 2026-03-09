@@ -1,0 +1,4 @@
+__pycache__/
+*.py[cod]
+projects/*.json
+projects/licenses_db.json
