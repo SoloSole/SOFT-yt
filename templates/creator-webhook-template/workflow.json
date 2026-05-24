@@ -1,1 +1,3 @@
-PLACEHOLDER
+{
+  "note": "The sanitized workflow JSON is prepared, but the full export will be added after an extra manual review step. Never publish raw n8n exports that contain real access tokens, service role keys, webhook URLs, or account IDs."
+}
