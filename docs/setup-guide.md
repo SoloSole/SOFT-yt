@@ -1,6 +1,6 @@
 # Setup guide
 
-This guide explains the planned setup flow for the n8n Instagram DM Automation Kit.
+This guide explains the setup flow for the n8n Instagram DM Automation Kit.
 
 The project is designed for builders who want to run their own Instagram comment-to-message automation stack with n8n, Supabase, Meta Developer APIs, and optional dashboard tooling.
 
@@ -38,7 +38,11 @@ Create the tables documented in `supabase/README.md`:
 - `dm_queue`
 - `dm_logs`
 
-A clean SQL example will be added later as `supabase/schema.example.sql`.
+A clean SQL example is available at:
+
+```text
+supabase/schema.example.sql
+```
 
 ## 3. Create a Meta Developer app
 
@@ -60,7 +64,7 @@ Use your own verify token and store it privately.
 
 ## 5. Import the n8n workflows
 
-The project is planned to include two main workflow templates:
+The project includes two main workflow templates:
 
 - webhook workflow: receives and parses events, matches keywords, and writes queue records
 - queue worker workflow: processes pending records with a conservative rate limit
