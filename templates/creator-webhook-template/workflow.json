@@ -1,7 +1,20 @@
 {
-  "name": "Instagram Webhook Template",
+  "name": "Instagram Webhook Full Template",
   "active": false,
   "nodes": [
+    {
+      "parameters": {
+        "path": "instagram-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-verify-get",
+      "name": "Webhook Verify (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "instagram-webhook"
+    },
     {
       "parameters": {
         "httpMethod": "POST",
@@ -9,11 +22,24 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-events",
-      "name": "Webhook Events",
+      "id": "webhook-events-post",
+      "name": "Webhook Events (POST)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 200]
+      "position": [0, 240],
+      "webhookId": "instagram-webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-challenge",
+      "name": "Respond Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [240, 0]
     },
     {
       "parameters": {
@@ -25,17 +51,49 @@
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [220, 200]
+      "position": [240, 240]
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body;\nlet eventType = 'unknown';\nlet commentText = '';\nlet commentId = '';\nlet senderId = '';\nlet accountId = '';\ntry {\n  const entry = body.entry?.[0];\n  accountId = entry?.id || '';\n  const change = entry?.changes?.[0];\n  const messaging = entry?.messaging?.[0];\n  if (change?.field === 'comments') {\n    eventType = 'comment';\n    commentText = change.value?.text || '';\n    commentId = change.value?.id || '';\n    senderId = change.value?.from?.id || '';\n    if (senderId === accountId) eventType = 'own_comment';\n  } else if (messaging?.postback) {\n    eventType = 'postback';\n    senderId = messaging.sender?.id || '';\n  } else if (messaging?.message && !messaging.message.is_echo) {\n    eventType = 'message';\n    commentText = messaging.message.text || '';\n    senderId = messaging.sender?.id || '';\n  }\n} catch (e) {}\nreturn [{ json: { eventType, commentText: commentText.toLowerCase().trim(), commentTextRaw: commentText, commentId, senderId, accountId } }];"
+        "jsCode": "const body = $input.first().json.body;\nlet eventType = 'unknown';\nlet commentText = '';\nlet commentId = '';\nlet senderId = '';\nlet senderUsername = '';\nlet mediaId = '';\nlet postbackPayload = '';\nlet igAccountId = '';\n\ntry {\n  const entry = body.entry?.[0];\n  igAccountId = entry?.id || '';\n  const change = entry?.changes?.[0];\n  const messaging = entry?.messaging?.[0];\n\n  if (change?.field === 'comments') {\n    eventType = 'comment';\n    commentText = change.value?.text || '';\n    commentId = change.value?.id || '';\n    senderId = change.value?.from?.id || '';\n    senderUsername = change.value?.from?.username || '';\n    mediaId = change.value?.media?.id || '';\n    if (senderId === igAccountId) eventType = 'own_comment';\n  } else if (messaging?.postback) {\n    eventType = 'postback';\n    postbackPayload = messaging.postback.payload || '';\n    senderId = messaging.sender?.id || '';\n  } else if (messing?.message && !messaging.message.is_echo) {\n    eventType = 'dm';\n    commentText = messaging.message.text || '';\n    senderId = messaging.sender?.id || '';\n  }\n} catch (e) {}\n\nreturn [{ json: {\n  eventType,\n  commentText: commentText.toLowerCase().trim(),\n  commentTextRaw: commentText,\n  commentId,\n  senderId,\n  senderUsername,\n  mediaId,\n  postbackPayload,\n  igAccountId\n}}];"
       },
       "id": "parse-event",
       "name": "Parse Event",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 200]
+      "position": [480, 240]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "ig_accounts",
+        "filters": { "conditions": [{ "keyName": "ig_user_id", "keyValue": "={{ $json.igAccountId }}" }] }
+      },
+      "id": "get-account",
+      "name": "Get Account",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [720, 240]
+    },
+    {
+      "parameters": {
+        "conditions": { "string": [{ "value1": "={{ $('Parse Event').first().json.eventType }}", "value2": "comment" }] }
+      },
+      "id": "is-comment",
+      "name": "Is Comment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, 240]
+    },
+    {
+      "parameters": {
+        "conditions": { "string": [{ "value1": "={{ $('Parse Event').first().json.eventType }}", "value2": "postback" }] }
+      },
+      "id": "is-postback",
+      "name": "Is Postback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1200, 480]
     },
     {
       "parameters": {
@@ -45,52 +103,186 @@
         "filterType": "string",
         "filterString": "active=eq.true"
       },
-      "id": "get-keyword-flows",
-      "name": "Get Keyword Flows",
+      "id": "get-kw-flows",
+      "name": "Get KW Flows",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [660, 200]
+      "position": [1200, 80]
     },
     {
       "parameters": {
-        "jsCode": "const eventData = $('Parse Event').first().json;\nconst flows = $input.all().map(i => i.json);\nlet matchedFlow = null;\nfor (const flow of flows) {\n  const kw = String(flow.keyword || '').toLowerCase().trim();\n  const text = eventData.commentText || '';\n  if (flow.match_type === 'exact' ? text === kw : text.includes(kw)) {\n    matchedFlow = flow;\n    break;\n  }\n}\nif (!matchedFlow || eventData.eventType !== 'comment') return [{ json: { matched: false } }];\nreturn [{ json: { matched: true, flow: matchedFlow, senderId: eventData.senderId, commentId: eventData.commentId, accountId: eventData.accountId, replyText: matchedFlow.reply_text, dmText: matchedFlow.dm_text, outputValue: matchedFlow.output_value, followerOnly: matchedFlow.follower_only } }];"
+        "jsCode": "const eventData = $('Parse Event').first().json;\nconst accountData = $('Get Account').first().json;\nconst flows = $input.all().map(i => i.json);\nlet matchedFlow = null;\n\nfor (const flow of flows) {\n  const kw = String(flow.keyword || '').toLowerCase().trim();\n  const text = eventData.commentText || '';\n  if (flow.match_type === 'exact') {\n    if (text === kw) { matchedFlow = flow; break; }\n  } else {\n    if (text.includes(kw)) { matchedFlow = flow; break; }\n  }\n}\n\nif (!matchedFlow) return [{ json: { matched: false, shouldQueue: false } }];\n\nconst igUsername = matchedFlow.ig_username || accountData.username || 'your_username';\nconst replyText = matchedFlow.reply_text || ('Sending it to your inbox.');\nconst btnTitle = matchedFlow.output_type === 'pdf' ? 'Open PDF' : 'Open Link';\nconst followerGateDm = accountData.follower_gate_dm || matchedFlow.dm_text || 'Get content';\n\nreturn [{ json: {\n  matched: true,\n  shouldQueue: true,\n  flow: matchedFlow,\n  senderId: eventData.senderId,\n  commentId: eventData.commentId,\n  igAccountId: eventData.igAccountId,\n  accessToken: accountData.access_token,\n  replyText,\n  btnTitle,\n  outputValue: matchedFlow.output_value,\n  followerOnly: matchedFlow.follower_only === true,\n  followerGateDm,\n  igUsername\n}}];"
       },
-      "id": "match-keyword",
-      "name": "Match Keyword",
+      "id": "match-kw",
+      "name": "Match KW",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 200]
+      "position": [1440, 80]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dm_queue",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "={{ 'comment_id=eq.' + $json.commentId + '&select=id' }}"
+      },
+      "id": "dedupe-check",
+      "name": "Dedupe Check",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1680, 80],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const matched = $('Match KW').first().json;\nconst duplicates = $input.all().filter(i => i.json.id);\nreturn [{ json: { ...matched, alreadyQueued: duplicates.length > 0, shouldQueue: matched.matched === true && duplicates.length === 0 } }];"
+      },
+      "id": "queue-decision",
+      "name": "Queue Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 80]
+    },
+    {
+      "parameters": {
+        "conditions": { "boolean": [{ "value1": "={{ $json.shouldQueue }}", "value2": true }] }
+      },
+      "id": "should-queue",
+      "name": "Should Queue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2160, 80]
     },
     {
       "parameters": {
         "tableId": "dm_queue",
-        "fieldsUi": {
-          "fieldValues": [
-            { "fieldId": "sender_id", "fieldValue": "={{ $json.senderId }}" },
-            { "fieldId": "comment_id", "fieldValue": "={{ $json.commentId }}" },
-            { "fieldId": "ig_account_id", "fieldValue": "={{ $json.accountId }}" },
-            { "fieldId": "dm_text", "fieldValue": "={{ $json.dmText }}" },
-            { "fieldId": "btn_title", "fieldValue": "Open" },
-            { "fieldId": "output_value", "fieldValue": "={{ $json.outputValue }}" },
-            { "fieldId": "reply_text", "fieldValue": "={{ $json.replyText }}" },
-            { "fieldId": "status", "fieldValue": "pending" }
-          ]
-        }
+        "fieldsUi": { "fieldValues": [
+          { "fieldId": "sender_id", "fieldValue": "={{ $json.senderId }}" },
+          { "fieldId": "comment_id", "fieldValue": "={{ $json.commentId }}" },
+          { "fieldId": "ig_account_id", "fieldValue": "={{ $json.igAccountId }}" },
+          { "fieldId": "access_token", "fieldValue": "={{ $json.accessToken }}" },
+          { "fieldId": "dm_text", "fieldValue": "={{ $json.followerGateDm }}" },
+          { "fieldId": "btn_title", "fieldValue": "={{ $json.btnTitle }}" },
+          { "fieldId": "output_value", "fieldValue": "={{ $json.outputValue }}" },
+          { "fieldId": "status", "fieldValue": "pending" },
+          { "fieldId": "follower_only", "fieldValue": "={{ $json.followerOnly }}" },
+          { "fieldId": "reply_text", "fieldValue": "={{ $json.replyText }}" }
+        ] }
       },
       "id": "add-to-queue",
       "name": "Add to Queue",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1100, 200]
+      "position": [2400, 80]
+    },
+    {
+      "parameters": {
+        "tableId": "dm_logs",
+        "fieldsUi": { "fieldValues": [
+          { "fieldId": "ig_user_id", "fieldValue": "={{ $('Queue Decision').first().json.senderId || '' }}" },
+          { "fieldId": "keyword_matched", "fieldValue": "={{ $('Queue Decision').first().json.flow?.keyword || '' }}" },
+          { "fieldId": "output_sent", "fieldValue": "={{ $('Queue Decision').first().json.outputValue || '' }}" },
+          { "fieldId": "is_follower", "fieldValue": false },
+          { "fieldId": "comment_id", "fieldValue": "={{ $('Queue Decision').first().json.commentId || '' }}" }
+        ] }
+      },
+      "id": "log-to-supabase",
+      "name": "Log to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2640, 80]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://graph.instagram.com/v21.0/' + $('Parse Event').first().json.senderId + '?fields=is_user_follow_business&access_token=' + $('Get Account').first().json.access_token }}",
+        "options": {}
+      },
+      "id": "check-follower",
+      "name": "Check Follower",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1440, 480]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nconst parseData = $('Parse Event').first().json;\nconst accountData = $('Get Account').first().json;\nconst isFollower = result.is_user_follow_business === true;\nreturn [{ json: {\n  isFollower,\n  senderId: parseData.senderId,\n  igAccountId: parseData.igAccountId,\n  accessToken: accountData.access_token,\n  postbackPayload: parseData.postbackPayload,\n  followerCheckMsg: accountData.follower_check_msg || 'This content is for followers only. Follow and click again.',\n  followerSuccessMsg: accountData.follower_success_msg || 'Here is your content.'\n}}];"
+      },
+      "id": "parse-follower",
+      "name": "Parse Follower",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 480]
+    },
+    {
+      "parameters": {
+        "conditions": { "boolean": [{ "value1": "={{ $json.isFollower }}", "value2": true }] }
+      },
+      "id": "is-follower",
+      "name": "Is Follower?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1920, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://graph.instagram.com/v21.0/' + $json.igAccountId + '/messages' }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Authorization", "value": "={{ 'Bearer ' + $json.accessToken }}" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { id: $json.senderId }, message: { attachment: { type: 'template', payload: { template_type: 'button', text: $json.followerSuccessMsg, buttons: [{ type: 'web_url', url: $json.postbackPayload, title: 'Open Link' }] } } } }) }}",
+        "options": {}
+      },
+      "id": "send-content-message",
+      "name": "Send Content Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2160, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://graph.instagram.com/v21.0/' + $json.igAccountId + '/messages' }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Authorization", "value": "={{ 'Bearer ' + $json.accessToken }}" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { id: $json.senderId }, message: { attachment: { type: 'template', payload: { template_type: 'button', text: $json.followerCheckMsg, buttons: [{ type: 'postback', title: 'Check again', payload: $json.postbackPayload }] } } } }) }}",
+        "options": {}
+      },
+      "id": "send-not-follower-message",
+      "name": "Send Not Follower Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2160, 560]
     }
   ],
   "connections": {
-    "Webhook Events": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] },
+    "Webhook Verify (GET)": { "main": [[{ "node": "Respond Challenge", "type": "main", "index": 0 }]] },
+    "Webhook Events (POST)": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] },
     "Respond OK": { "main": [[{ "node": "Parse Event", "type": "main", "index": 0 }]] },
-    "Parse Event": { "main": [[{ "node": "Get Keyword Flows", "type": "main", "index": 0 }]] },
-    "Get Keyword Flows": { "main": [[{ "node": "Match Keyword", "type": "main", "index": 0 }]] },
-    "Match Keyword": { "main": [[{ "node": "Add to Queue", "type": "main", "index": 0 }]] }
+    "Parse Event": { "main": [[{ "node": "Get Account", "type": "main", "index": 0 }]] },
+    "Get Account": { "main": [[{ "node": "Is Comment?", "type": "main", "index": 0 }]] },
+    "Is Comment?": { "main": [[{ "node": "Get KW Flows", "type": "main", "index": 0 }], [{ "node": "Is Postback?", "type": "main", "index": 0 }]] },
+    "Is Postback?": { "main": [[{ "node": "Check Follower", "type": "main", "index": 0 }]] },
+    "Get KW Flows": { "main": [[{ "node": "Match KW", "type": "main", "index": 0 }]] },
+    "Match KW": { "main": [[{ "node": "Dedupe Check", "type": "main", "index": 0 }]] },
+    "Dedupe Check": { "main": [[{ "node": "Queue Decision", "type": "main", "index": 0 }]] },
+    "Queue Decision": { "main": [[{ "node": "Should Queue?", "type": "main", "index": 0 }]] },
+    "Should Queue?": { "main": [[{ "node": "Add to Queue", "type": "main", "index": 0 }]] },
+    "Add to Queue": { "main": [[{ "node": "Log to Supabase", "type": "main", "index": 0 }]] },
+    "Check Follower": { "main": [[{ "node": "Parse Follower", "type": "main", "index": 0 }]] },
+    "Parse Follower": { "main": [[{ "node": "Is Follower?", "type": "main", "index": 0 }]] },
+    "Is Follower?": { "main": [[{ "node": "Send Content Message", "type": "main", "index": 0 }], [{ "node": "Send Not Follower Message", "type": "main", "index": 0 }]] }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
   "tags": []
 }
