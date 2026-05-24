@@ -1,14 +1,12 @@
-# n8n Creator Automation Kit
+# n8n Instagram DM Automation Kit
 
-Open-source n8n workflow templates for creators, marketers, indie builders, and small teams.
-
-The first module is a self-hosted Instagram comment-to-DM automation toolkit powered by n8n, Supabase, Meta Developer APIs, and an optional admin dashboard.
+Self-hosted Instagram comment-to-DM automation toolkit powered by n8n, Supabase, Meta Developer APIs, and an optional admin dashboard.
 
 It is designed as a practical open-source alternative to hosted social automation tools: you run your own infrastructure, keep your own database, and avoid artificial monthly message caps from this project. Meta/Instagram API limits, permissions, messaging rules, and platform policies still apply.
 
 ## What this project is
 
-This project provides documented n8n workflow templates for creator and marketing automations, starting with Instagram keyword-comment-to-DM workflows.
+This project provides documented n8n workflow templates for Instagram keyword-comment-to-DM automation.
 
 The main idea is simple:
 
