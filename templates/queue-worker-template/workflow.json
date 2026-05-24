@@ -1,0 +1,128 @@
+{
+  "name": "Queue Worker Template",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "minutes", "minutesInterval": 2 }
+          ]
+        }
+      },
+      "id": "every-two-minutes",
+      "name": "Every 2 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dm_queue",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "={{ 'status=eq.sent&sent_at=gte.' + new Date(Date.now() - 3600000).toISOString() }}"
+      },
+      "id": "count-recent",
+      "name": "Count Recent Jobs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [220, 0],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const recent = $input.all().filter(i => i.json.status === 'sent').length;\nconst LIMIT = 180;\nconst remaining = Math.max(0, LIMIT - recent);\nconst batchSize = Math.min(6, remaining);\nreturn [{ json: { recent, remaining, batchSize, canSend: batchSize > 0 } }];"
+      },
+      "id": "calculate-batch",
+      "name": "Calculate Batch Size",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            { "value1": "={{ $json.canSend }}", "value2": true }
+          ]
+        }
+      },
+      "id": "can-send",
+      "name": "Can Send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dm_queue",
+        "limit": "={{ $('Calculate Batch Size').first().json.batchSize }}",
+        "filterType": "string",
+        "filterString": "status=eq.pending&order=created_at.asc"
+      },
+      "id": "get-pending",
+      "name": "Get Pending Jobs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [880, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://graph.instagram.com/v21.0/' + $json.ig_account_id + '/messages' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $json.access_token }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { id: $json.sender_id }, message: { attachment: { type: 'template', payload: { template_type: 'button', text: $json.dm_text, buttons: [{ type: 'web_url', url: $json.output_value, title: $json.btn_title || 'Open' }] } } } }) }}",
+        "options": {}
+      },
+      "id": "send-message",
+      "name": "Send Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, -120]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dm_queue",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Get Pending Jobs').item.json.id }}" }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "status", "fieldValue": "sent" },
+            { "fieldId": "sent_at", "fieldValue": "={{ new Date().toISOString() }}" }
+          ]
+        }
+      },
+      "id": "mark-sent",
+      "name": "Mark as Sent",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1320, -120]
+    }
+  ],
+  "connections": {
+    "Every 2 Minutes": { "main": [[{ "node": "Count Recent Jobs", "type": "main", "index": 0 }]] },
+    "Count Recent Jobs": { "main": [[{ "node": "Calculate Batch Size", "type": "main", "index": 0 }]] },
+    "Calculate Batch Size": { "main": [[{ "node": "Can Send?", "type": "main", "index": 0 }]] },
+    "Can Send?": { "main": [[{ "node": "Get Pending Jobs", "type": "main", "index": 0 }]] },
+    "Get Pending Jobs": { "main": [[{ "node": "Send Message", "type": "main", "index": 0 }]] },
+    "Send Message": { "main": [[{ "node": "Mark as Sent", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": []
+}
