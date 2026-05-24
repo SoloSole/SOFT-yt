@@ -4,6 +4,16 @@ This folder documents the database structure used by the n8n Instagram DM Automa
 
 The schema is based on a working private implementation, but public examples must use placeholders and safe defaults.
 
+## Quick setup
+
+Run the example schema in your private Supabase SQL editor:
+
+```sql
+-- supabase/schema.example.sql
+```
+
+Then add your own private account row and keyword flow using your own values. Do not commit private tokens, project URLs, account IDs, or real user data.
+
 ## Tables
 
 ### `ig_accounts`
@@ -98,6 +108,6 @@ Do not publish real:
 - production webhook URLs
 - private logs
 
-## Recommended next step
+## Files
 
-A clean `schema.example.sql` file should be generated from this structure with placeholder defaults and no real account names.
+- `schema.example.sql` - safe example schema with placeholder defaults
