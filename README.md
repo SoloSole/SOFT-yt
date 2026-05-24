@@ -24,15 +24,17 @@ Instagram comment with keyword
         ↓
 Meta Webhook
         ↓
-n8n workflow
+n8n webhook workflow
         ↓
 Supabase keyword lookup
         ↓
 DM queue / rate limit layer
         ↓
+n8n queue worker workflow
+        ↓
 Instagram message with button or link
         ↓
-Logs and stats
+Public reply, logs and stats
 ```
 
 ## Keyword logic
@@ -49,14 +51,16 @@ Hosted automation tools are convenient, but they can become expensive or limited
 
 Typical costs are your own infrastructure costs such as a VPS, database, and domain. Platform limits still apply, especially Meta/Instagram rate limits and messaging policies.
 
-## Planned templates
+## Included templates
 
-- Instagram comment keyword → message automation
-- queue worker with rate limiting
-- Supabase-backed keyword flow management
-- optional follower-gate style postback flow
-- optional admin dashboard integration notes
-- self-hosted n8n + Cloudflare + VPS deployment notes
+- webhook workflow for Meta verification and event parsing
+- keyword matching workflow branch using Supabase `kw_flows`
+- queue insert flow using Supabase `dm_queue`
+- log insert flow using Supabase `dm_logs`
+- follower-gate postback branch
+- queue worker template with conservative rate limiting
+- optional admin dashboard documentation
+- self-hosted n8n + custom domain deployment notes
 
 ## Repository structure
 
@@ -68,17 +72,26 @@ Typical costs are your own infrastructure costs such as a VPS, database, and dom
 ├── CONTRIBUTING.md
 ├── SECURITY.md
 ├── docs/
-│   ├── getting-started.md
 │   ├── architecture.md
-│   ├── optional-admin-dashboard.md
+│   ├── getting-started.md
 │   ├── n8n-technical-notes.md
-│   └── security-and-secrets.md
+│   ├── optional-admin-dashboard.md
+│   ├── release-checklist.md
+│   ├── roadmap.md
+│   ├── security-and-secrets.md
+│   ├── setup-guide.md
+│   └── testing-checklist.md
 ├── examples/
 │   └── .env.example
 ├── supabase/
-│   └── README.md
+│   ├── README.md
+│   └── schema.example.sql
 └── templates/
-    └── creator-webhook-template/
+    ├── creator-webhook-template/
+    │   ├── README.md
+    │   └── workflow.json
+    └── queue-worker-template/
+        ├── README.md
         └── workflow.json
 ```
 
@@ -90,7 +103,7 @@ See [`docs/security-and-secrets.md`](docs/security-and-secrets.md).
 
 ## Status
 
-Early public setup. Workflow templates are being sanitized and documented before publication.
+Early public setup. The repository includes documentation, Supabase schema examples, testing checklists, and initial sanitized n8n workflow templates. More setup examples, screenshots, and an optional clean admin dashboard starter are planned.
 
 ## License
 
