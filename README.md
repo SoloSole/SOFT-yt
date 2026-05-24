@@ -2,17 +2,24 @@
 
 Open-source n8n workflow templates for creators, marketers, indie builders, and small teams.
 
-This repository is being built as a practical self-hosted alternative to hosted Instagram DM automation tools. The first toolkit focuses on Instagram keyword-comment-to-DM flows powered by n8n, Supabase, Meta Developer APIs, and optional self-hosted admin dashboards.
+The first module is a self-hosted Instagram comment-to-DM automation toolkit powered by n8n, Supabase, Meta Developer APIs, and an optional admin dashboard.
+
+It is designed as a practical open-source alternative to hosted social automation tools: you run your own infrastructure, keep your own database, and avoid artificial monthly message caps from this project. Meta/Instagram API limits, permissions, messaging rules, and platform policies still apply.
 
 ## What this project is
 
-This project provides documented n8n automation templates for common creator and marketing workflows, starting with Instagram comment-to-DM automation.
+This project provides documented n8n workflow templates for creator and marketing automations, starting with Instagram keyword-comment-to-DM workflows.
 
-The goal is to help builders run their own automation stack instead of depending entirely on paid platforms with monthly message limits. You still need to follow Meta Platform rules, Instagram API limits, messaging windows, and applicable privacy laws.
+The main idea is simple:
 
-## Current focus: Instagram DM automation
+- users comment a keyword under a post
+- Meta sends a webhook event
+- n8n receives and parses the event
+- Supabase stores keyword rules, connected accounts, queue records, and logs
+- a queue worker sends the follow-up message safely with rate limiting
+- an optional dashboard lets you manage keywords, texts, accounts, queue status, and logs
 
-The first planned template is a self-hosted Instagram automation flow:
+## Current focus: Instagram comment-to-DM automation
 
 ```text
 Instagram comment with keyword
@@ -25,10 +32,18 @@ Supabase keyword lookup
         ↓
 DM queue / rate limit layer
         ↓
-Instagram DM with button or link
+Instagram message with button or link
         ↓
 Logs and stats
 ```
+
+## Keyword logic
+
+Keywords are stored globally in the database, not per post.
+
+That means a creator can write something like `comment "guide" below` in a post, but the workflow will match any active keyword that exists in the database. If a different active keyword is commented, the user receives the content configured for that keyword.
+
+This keeps the system simple, reusable, and easy to manage from the database or optional dashboard.
 
 ## Why self-host this?
 
@@ -38,12 +53,12 @@ Typical costs are your own infrastructure costs such as a VPS, database, and dom
 
 ## Planned templates
 
-- Instagram comment keyword → DM automation
-- DM queue worker with rate limiting
+- Instagram comment keyword → message automation
+- queue worker with rate limiting
 - Supabase-backed keyword flow management
-- Optional follower-gate style postback flow
-- Admin dashboard integration notes
-- Self-hosted n8n + Cloudflare + VPS deployment notes
+- optional follower-gate style postback flow
+- optional admin dashboard integration notes
+- self-hosted n8n + Cloudflare + VPS deployment notes
 
 ## Repository structure
 
@@ -57,24 +72,15 @@ Typical costs are your own infrastructure costs such as a VPS, database, and dom
 ├── docs/
 │   ├── getting-started.md
 │   ├── architecture.md
-│   ├── self-hosted-n8n.md
-│   ├── meta-developer-setup.md
-│   ├── supabase-setup.md
+│   ├── optional-admin-dashboard.md
+│   ├── n8n-technical-notes.md
 │   └── security-and-secrets.md
 ├── examples/
 │   └── .env.example
 ├── supabase/
-│   ├── schema.sql
-│   ├── grants.sql
-│   └── seed.example.sql
+│   └── README.md
 └── templates/
-    ├── instagram-comment-to-dm/
-    │   ├── README.md
-    │   ├── setup.md
-    │   └── workflow.json
-    └── instagram-dm-queue-worker/
-        ├── README.md
-        ├── setup.md
+    └── creator-webhook-template/
         └── workflow.json
 ```
 
